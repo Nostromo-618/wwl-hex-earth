@@ -1,1 +1,1 @@
-export { default as VwlHexEarthDemo } from './VwlHexEarthDemo.vue';
+export { default as WwlHexEarthDemo } from './WwlHexEarthDemo.vue';

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { VdThemeSwitcher, useThemePreference } from '@vanduo-oss/vd3';
-import VwlHexEarthDemo from './VwlHexEarthDemo.vue';
+import WwlHexEarthDemo from './WwlHexEarthDemo.vue';
 const pref = useThemePreference();
 try {
   if (!localStorage.getItem('vanduo-theme-preference')) pref.setTheme('dark');
@@ -9,8 +9,8 @@ try {
 }
 </script>
 <template>
-  <VwlHexEarthDemo
+  <WwlHexEarthDemo
     ><template #theme
       ><div data-testid="theme-switcher"><VdThemeSwitcher :menu="false" /></div></template
-  ></VwlHexEarthDemo>
+  ></WwlHexEarthDemo>
 </template>

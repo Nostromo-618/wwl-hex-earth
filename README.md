@@ -1,8 +1,8 @@
-# vwl-hex-earth
+# wwl-hex-earth
 
-Hex-grid Earth for Vanduo Web Labs. A Vue 3 app, and a library Labs loads on the hex-earth route. UI is vd3; the canvas is vwl-cbun.
+Hex-grid Earth for Weekend Web Labs. A Vue 3 app, and a library Labs loads on the hex-earth route. UI is vd3; the canvas is wwl-cbun.
 
-Live: https://nostromo-618.github.io/labs/#demos/hex-earth
+Live: https://nostromo-618.github.io/weekend-web-labs/#demos/hex-earth
 
 ```bash
 pnpm install --ignore-scripts=false
