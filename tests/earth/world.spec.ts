@@ -10,19 +10,29 @@ import {
   neighborIndexes,
   qToCol,
   tierById,
+  tiersFor,
 } from '../../src/earth/world';
 
 describe('world', () => {
-  it('exposes four resolution tiers and a default', () => {
-    expect(TIERS.map((t) => t.id)).toEqual(['low', 'mid', 'high', 'ultra']);
+  it('exposes five resolution tiers and a default', () => {
+    expect(TIERS.map((t) => t.id)).toEqual(['low', 'mid', 'high', 'ultra', 'max']);
     expect(DEFAULT_TIER).toBe('low');
     expect(HEX_SIZE).toBe(6);
     expect(TIERS[3].id).toBe('ultra');
+    expect(TIERS[4].label).toBe('512k');
+    expect(TIERS[4].worldOnly).toBe(true);
   });
 
   it('counts hexes as cols × rows', () => {
     expect(hexCountOf(TIERS[0])).toBe(28800);
     expect(hexCountOf(TIERS[3])).toBe(259200);
+    expect(hexCountOf(TIERS[4])).toBe(512000);
+  });
+
+  it('offers 512k on the world only', () => {
+    expect(tiersFor('world').map((t) => t.id)).toContain('max');
+    expect(tiersFor('europe').map((t) => t.id)).not.toContain('max');
+    expect(tiersFor('nope').some((t) => t.worldOnly)).toBe(false);
   });
 
   it('resolves known ids and falls back to the first tier', () => {

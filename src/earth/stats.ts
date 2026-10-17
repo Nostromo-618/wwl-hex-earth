@@ -11,6 +11,10 @@ export interface HexWorldInfo {
   hexes: number;
   cell: number;
   cellUnit: 'deg' | 'km';
+  /** Longitude step in degrees, when the globe reports both axes. */
+  cellLon?: number;
+  /** Latitude step in degrees, when the globe reports both axes. */
+  cellLat?: number;
   landCells: number;
   kindCounts: number[];
   paintMs: number;

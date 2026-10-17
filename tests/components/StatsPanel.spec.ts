@@ -62,6 +62,26 @@ describe('StatsPanel', () => {
     expect(wrapper.text()).toContain('1.5°');
   });
 
+  it('shows longitude and latitude steps for the globe', () => {
+    statsStore.world = {
+      region: 'World',
+      tier: 'ultra',
+      cols: 670,
+      rows: 387,
+      hexes: 670 * 387,
+      cell: 0.5,
+      cellLon: 0.537,
+      cellLat: 0.465,
+      cellUnit: 'deg',
+      landCells: 20,
+      kindCounts: [],
+      paintMs: 9,
+    };
+    const wrapper = mount(StatsPanel, { props: { open: true } });
+    expect(wrapper.text()).toContain('0.54° × 0.47°');
+    expect(wrapper.text()).toContain('512k');
+  });
+
   it('shows kilometre cell size for equal-area regions', () => {
     statsStore.world = {
       region: 'Europe',
@@ -122,7 +142,7 @@ describe('StatsPanel', () => {
     localStorage.setItem('wwl-hex-earth:stats:position', '{not json');
     const broken = mount(StatsPanel, { props: { open: true } });
     expect((broken.get('[data-testid="stats-panel"]').element as HTMLElement).style.left).toBe(
-      '350px',
+      '400px',
     );
     broken.unmount();
     localStorage.setItem('wwl-hex-earth:stats:position', JSON.stringify({ x: 40, y: 50 }));

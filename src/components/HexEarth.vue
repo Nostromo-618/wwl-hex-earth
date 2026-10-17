@@ -3,13 +3,13 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VdHexGridCore, type HexCell, type HexRenderStats } from '@wwl/wwl-cbun/hex-grid';
 import {
   HEX_SIZE,
-  TIERS,
   cellToLonLat,
   cellToQ,
   findPath,
   gridFor,
   qToCol,
   tierById,
+  tiersFor,
   type Cell,
   type GridTier,
 } from '../earth/world';
@@ -252,6 +252,8 @@ function getWorldInfo(): HexWorldInfo | null {
     rows: world.rows,
     hexes: world.cols * world.rows,
     cell: spec.cell,
+    cellLon: spec.cellLon,
+    cellLat: spec.cellLat,
     cellUnit: spec.cellUnit,
     landCells: world.landCells,
     kindCounts: worldCounts,
@@ -328,7 +330,7 @@ async function runBenchmarks(): Promise<void> {
   benchmarking = true;
   statsStore.benchmarkRunning = true;
   try {
-    for (const tier of TIERS) {
+    for (const tier of tiersFor(props.region)) {
       await new Promise((resolve) => setTimeout(resolve, 0));
       if (disposed || epoch !== benchmarkEpoch) break;
       await measureTier(tier, epoch);

@@ -1,30 +1,40 @@
-import { WORLD, type MapRegion } from './regions';
+import { WORLD, latSpan, lonSpan, type MapRegion } from './regions';
 import { planarSpan, regionPlanarBounds, xyToLonLat, type LonLat } from './project';
 
 export type { LonLat };
 
 export interface GridTier {
-  id: 'low' | 'mid' | 'high' | 'ultra';
+  id: 'low' | 'mid' | 'high' | 'ultra' | 'max';
   label: string;
+  /** Hex budget. Painted cols×rows come from `gridFor`, not these figures. */
   cols: number;
   rows: number;
-  /** Cell size in degrees on the globe (World). */
+  /**
+   * Nominal square-degree size of the old 2:1 budget. The painted globe step
+   * is `gridFor`'s cellLon × cellLat.
+   */
   cell: number;
+  /** Offered on the world globe only. */
+  worldOnly?: boolean;
 }
 
-/** Resolution tiers — hex-count labels; World keeps these cols×rows. */
+/** Resolution tiers — hex-count labels. Painted shape comes from `gridFor`. */
 export const TIERS: GridTier[] = [
   { id: 'low', label: '28.8k', cols: 240, rows: 120, cell: 1.5 },
   { id: 'mid', label: '64.8k', cols: 360, rows: 180, cell: 1.0 },
   { id: 'high', label: '115.2k', cols: 480, rows: 240, cell: 0.75 },
   { id: 'ultra', label: '259.2k', cols: 720, rows: 360, cell: 0.5 },
+  { id: 'max', label: '512k', cols: 800, rows: 640, cell: 0.35, worldOnly: true },
 ];
 
 export const DEFAULT_TIER: GridTier['id'] = 'low';
-const DEFAULT_TIER_EUROPE: GridTier['id'] = 'ultra';
+const DEFAULT_TIER_EUROPE: GridTier['id'] = 'mid';
+const DEFAULT_TIER_WORLD: GridTier['id'] = 'high';
 
 export function defaultTierFor(regionId: string): GridTier['id'] {
-  return regionId === 'europe' ? DEFAULT_TIER_EUROPE : DEFAULT_TIER;
+  if (regionId === 'europe') return DEFAULT_TIER_EUROPE;
+  if (regionId === 'world') return DEFAULT_TIER_WORLD;
+  return DEFAULT_TIER;
 }
 
 /** Hex radius in canvas world pixels (shared by the renderer, toolbar, stats). */
@@ -32,6 +42,12 @@ export const HEX_SIZE = 6;
 
 export function tierById(id: string): GridTier {
   return TIERS.find((t) => t.id === id) ?? TIERS[0];
+}
+
+/** Tiers the toolbar and benchmarks should offer for a region. */
+export function tiersFor(regionId: string): GridTier[] {
+  if (regionId === 'world') return TIERS;
+  return TIERS.filter((tier) => !tier.worldOnly);
 }
 
 export function hexCountOf(tier: GridTier): number {
@@ -42,8 +58,13 @@ export interface GridSpec {
   cols: number;
   rows: number;
   hexes: number;
+  /** Kilometres, or the geometric mean of the degree steps. */
   cell: number;
   cellUnit: 'deg' | 'km';
+  /** Longitude step in degrees. Set for the globe. */
+  cellLon?: number;
+  /** Latitude step in degrees. Set for the globe. */
+  cellLat?: number;
 }
 
 /**
@@ -58,14 +79,23 @@ function dimensionsFor(hexes: number, colsOverRows: number): { cols: number; row
   return { cols, rows };
 }
 
-/** World uses the tier's 2:1 globe grid; LAEA regions match meter aspect. */
+/**
+ * World spends the tier's hex budget on a grid whose pointy-top pixels match
+ * the geographic aspect (2:1 for the globe). LAEA regions match meter aspect.
+ */
 export function gridFor(region: MapRegion, tier: GridTier): GridSpec {
   if (region.projection !== 'laea') {
+    const geoAspect = lonSpan(region) / latSpan(region);
+    const { cols, rows } = dimensionsFor(hexCountOf(tier), geoAspect / HEX_PIXEL_ASPECT);
+    const cellLon = lonSpan(region) / cols;
+    const cellLat = latSpan(region) / rows;
     return {
-      cols: tier.cols,
-      rows: tier.rows,
-      hexes: tier.cols * tier.rows,
-      cell: tier.cell,
+      cols,
+      rows,
+      hexes: cols * rows,
+      cell: Math.sqrt(cellLon * cellLat),
+      cellLon,
+      cellLat,
       cellUnit: 'deg',
     };
   }

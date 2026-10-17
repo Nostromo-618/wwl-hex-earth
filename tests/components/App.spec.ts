@@ -85,17 +85,34 @@ describe('App', () => {
     expect(setTheme).not.toHaveBeenCalled();
   });
 
-  it('defaults to Europe ultra with the 259.2k tier enabled', async () => {
+  it('defaults to Europe mid with the 64.8k tier selected', async () => {
     const wrapper = mount(App);
     expect(wrapper.get('[data-testid="region-europe"]').classes()).toContain('active');
-    const ultra = wrapper.get('[data-testid="tier-ultra"]');
-    expect((ultra.element as HTMLButtonElement).disabled).toBe(false);
-    expect(ultra.classes()).toContain('active');
+    const mid = wrapper.get('[data-testid="tier-mid"]');
+    expect(mid.text()).toContain('64.8k');
+    expect(mid.classes()).toContain('active');
+    expect((wrapper.get('[data-testid="tier-ultra"]').element as HTMLButtonElement).disabled).toBe(
+      false,
+    );
     await wrapper.get('[data-testid="tier-low"]').trigger('click');
     expect(wrapper.get('[data-testid="tier-low"]').classes()).toContain('active');
     await wrapper.get('[data-testid="tier-ultra"]').trigger('click');
     expect(wrapper.get('[data-testid="tier-ultra"]').classes()).toContain('active');
     await wrapper.get('[data-testid="tier-ultra"]').trigger('click');
+  });
+
+  it('offers 512k only on the world and selects each region default', async () => {
+    const wrapper = mount(App);
+    expect(wrapper.find('[data-testid="tier-max"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="region-world"]').trigger('click');
+    expect(wrapper.get('[data-testid="tier-high"]').text()).toContain('115.2k');
+    expect(wrapper.get('[data-testid="tier-high"]').classes()).toContain('active');
+    expect(wrapper.get('[data-testid="tier-max"]').text()).toContain('512k');
+    await wrapper.get('[data-testid="tier-max"]').trigger('click');
+    expect(wrapper.get('[data-testid="tier-max"]').classes()).toContain('active');
+    await wrapper.get('[data-testid="region-europe"]').trigger('click');
+    expect(wrapper.find('[data-testid="tier-max"]').exists()).toBe(false);
+    expect(wrapper.get('[data-testid="tier-mid"]').classes()).toContain('active');
   });
 
   it('wires zoom, path mode, stats, and mid-tier selection', async () => {

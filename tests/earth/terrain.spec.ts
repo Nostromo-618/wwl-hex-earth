@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { KIND, KIND_NAMES, buildWorld, fillFor, landKind } from '../../src/earth/terrain';
+import {
+  KIND,
+  KIND_NAMES,
+  buildWorld,
+  fillFor,
+  landKind,
+  worldLandKind,
+} from '../../src/earth/terrain';
 
 describe('landKind', () => {
   it('is polar-first so high latitudes are never sand', () => {
@@ -17,6 +24,35 @@ describe('landKind', () => {
     expect(landKind(10, 1, 0.1, 0, false)).toBe(KIND.MOUNTAIN);
     expect(landKind(10, 0.1, 0.5, 0, false)).toBe(KIND.PLAINS);
     expect(landKind(10, 0.5, 0.5, 0, false)).toBe(KIND.GRASS);
+  });
+});
+
+describe('worldLandKind', () => {
+  it('keeps Antarctica and Greenland as ice and leaves Siberia green', () => {
+    expect(worldLandKind(-75, 0, 1, 1, 0, false)).toBe(KIND.ICE);
+    expect(worldLandKind(72, -40, 1, 1, 0, false)).toBe(KIND.ICE);
+    expect(worldLandKind(63, -45, 1, 1, 0, false)).toBe(KIND.ICE);
+    expect(worldLandKind(85, -40, 1, 1, 0, false)).toBe(KIND.ICE);
+    expect(worldLandKind(80, -20, 1, 1, 0, false)).toBe(KIND.ICE);
+    expect(worldLandKind(80, 100, 1, 1, 0, false)).toBe(KIND.ICE);
+    const siberia = worldLandKind(65, 90, 0, 1, 0, false);
+    expect(siberia).not.toBe(KIND.ICE);
+    expect(siberia).not.toBe(KIND.SNOW);
+    expect(siberia).toBe(KIND.TUNDRA);
+    expect(worldLandKind(65, 90, 0.9, 1, 0, false)).toBe(KIND.GRASS);
+  });
+
+  it('does not paint the 55° belt or Iceland as an ice sheet', () => {
+    expect(worldLandKind(55, -100, 0.1, 0.5, 0, false)).toBe(KIND.PLAINS);
+    expect(worldLandKind(55, -100, 0.1, 0.5, 0, false)).not.toBe(KIND.SNOW);
+    expect(worldLandKind(-55, -70, 0.5, 0.5, 0, false)).not.toBe(KIND.ICE);
+    expect(worldLandKind(65, -20, 0.9, 1, 0, false)).toBe(KIND.GRASS);
+    expect(worldLandKind(70, -80, 0.9, 1, 0, false)).toBe(KIND.TUNDRA);
+    expect(worldLandKind(70, 0, 0.1, 1, 0, false)).toBe(KIND.SNOW);
+    expect(worldLandKind(74, 90, 0.9, 1, 0, false)).toBe(KIND.TUNDRA);
+    expect(worldLandKind(20, 10, 1, 1, 0.8, true)).toBe(KIND.SAND);
+    expect(worldLandKind(20, 10, 1, 1, 0.8, false)).toBe(KIND.DESERT);
+    expect(worldLandKind(20, 10, 1, 0.1, 0, false)).toBe(KIND.MOUNTAIN);
   });
 });
 

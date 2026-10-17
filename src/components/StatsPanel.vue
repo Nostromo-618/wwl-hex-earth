@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import FloatingPanel from './FloatingPanel.vue';
-import { HEX_SIZE, TIERS } from '../earth/world';
+import { HEX_SIZE, tiersFor } from '../earth/world';
 import {
   estimateModelBytes,
   kindName,
@@ -15,6 +15,19 @@ defineProps<{ open: boolean; resetKey?: number }>();
 defineEmits<{ (e: 'close'): void }>();
 
 const gate = computed(() => ultraGate());
+const benchmarkTiers = computed(() =>
+  tiersFor(statsStore.world?.region === 'World' ? 'world' : 'europe'),
+);
+
+function cellLabel(): string {
+  const world = statsStore.world;
+  if (!world) return '—';
+  if (world.cellUnit === 'km') return `${world.cell.toFixed(1)} km`;
+  if (world.cellLon != null && world.cellLat != null) {
+    return `${world.cellLon.toFixed(2)}° × ${world.cellLat.toFixed(2)}°`;
+  }
+  return `${world.cell}°`;
+}
 
 function fmt(value: number | null, digits = 1): string {
   return value == null ? 'n/a' : value.toFixed(digits);
@@ -41,7 +54,7 @@ function benchOf(tier: string): TierBenchmark | undefined {
     :open="open"
     name="stats"
     title="Stats"
-    :initial-x="350"
+    :initial-x="400"
     :initial-y="48"
     :reset-key="resetKey"
     @close="$emit('close')"
@@ -78,14 +91,7 @@ function benchOf(tier: string): TierBenchmark | undefined {
           }}</b>
         </div>
         <div class="row">
-          <span>Cell</span
-          ><b>{{
-            statsStore.world
-              ? statsStore.world.cellUnit === 'km'
-                ? `${statsStore.world.cell.toFixed(1)} km`
-                : `${statsStore.world.cell}°`
-              : '—'
-          }}</b>
+          <span>Cell</span><b>{{ cellLabel() }}</b>
         </div>
         <div class="row">
           <span>Total hexes</span><b>{{ statsStore.world?.hexes.toLocaleString() ?? '—' }}</b>
@@ -158,7 +164,7 @@ function benchOf(tier: string): TierBenchmark | undefined {
       <section>
         <h4>Benchmarks</h4>
         <div v-if="statsStore.benchmarkRunning" class="row"><span>measuring…</span><b></b></div>
-        <div v-for="tier in TIERS" :key="tier.id" class="bench">
+        <div v-for="tier in benchmarkTiers" :key="tier.id" class="bench">
           <div class="bench-name">{{ tier.id }} ({{ tier.label }})</div>
           <div class="row">
             <span>first paint</span><b>{{ fmt(benchOf(tier.id)?.firstPaintMs ?? null, 0) }} ms</b>

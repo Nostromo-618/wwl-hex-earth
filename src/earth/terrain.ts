@@ -139,6 +139,33 @@ function touchesWater(i: number, land: Uint8Array, cols: number, rows: number): 
   return false;
 }
 
+/**
+ * Coarse Greenland ice sheet. The northeast reaches about 12°W, but only north
+ * of Iceland; the notch keeps Iceland (about 63–67°N, east of 30°W) green.
+ */
+const GREENLAND = { west: -73, east: -12, south: 60, north: 84, notchLat: 67.5, notchLon: -30 };
+
+function inGreenland(lon: number, lat: number): boolean {
+  if (lat < GREENLAND.south || lat > GREENLAND.north) return false;
+  if (lon < GREENLAND.west || lon > GREENLAND.east) return false;
+  if (lat < GREENLAND.notchLat && lon > GREENLAND.notchLon) return false;
+  return true;
+}
+
+function temperateKind(
+  absLat: number,
+  climate: number,
+  detail: number,
+  aridity: number,
+  coastal: boolean,
+): number {
+  if (coastal) return KIND.SAND;
+  if (absLat >= 15 && absLat <= 33 && aridity > 0.56) return KIND.DESERT;
+  if (detail < 0.2) return KIND.MOUNTAIN;
+  if (climate < 0.28) return KIND.PLAINS;
+  return KIND.GRASS;
+}
+
 /** Classify one land cell, polar-first so Arctic coasts never render as sand. */
 export function landKind(
   absLat: number,
@@ -150,11 +177,27 @@ export function landKind(
   if (absLat >= 72) return KIND.ICE;
   if (absLat >= 62) return climate < 0.55 ? KIND.ICE : KIND.SNOW;
   if (absLat >= 55) return climate < 0.5 ? KIND.SNOW : KIND.TUNDRA;
-  if (coastal) return KIND.SAND;
-  if (absLat >= 15 && absLat <= 33 && aridity > 0.56) return KIND.DESERT;
-  if (detail < 0.2) return KIND.MOUNTAIN;
-  if (climate < 0.28) return KIND.PLAINS;
-  return KIND.GRASS;
+  return temperateKind(absLat, climate, detail, aridity, coastal);
+}
+
+/**
+ * Globe climate. Antarctica and Greenland stay ice; Canada and Siberia stay
+ * boreal green with a tundra fringe instead of a white latitude band.
+ */
+export function worldLandKind(
+  lat: number,
+  lon: number,
+  climate: number,
+  detail: number,
+  aridity: number,
+  coastal: boolean,
+): number {
+  if (lat <= -60) return KIND.ICE;
+  if (inGreenland(lon, lat)) return KIND.ICE;
+  if (lat >= 78) return KIND.ICE;
+  if (lat >= 70) return climate < 0.3 ? KIND.SNOW : KIND.TUNDRA;
+  if (lat >= 60) return climate < 0.35 ? KIND.TUNDRA : KIND.GRASS;
+  return temperateKind(Math.abs(lat), climate, detail, aridity, coastal);
 }
 
 export function buildWorld(
@@ -167,6 +210,7 @@ export function buildWorld(
   const land = new Uint8Array(n);
   const landPct = new Float32Array(n);
   const lats = new Float32Array(n);
+  const lons = new Float32Array(n);
   const kinds = new Uint8Array(n);
 
   const { dx, dy } = cellStep(cols, rows, region);
@@ -177,6 +221,7 @@ export function buildWorld(
       const i = row * cols + col;
       const ll = cellToLonLat(col, row, cols, rows, region);
       lats[i] = ll.lat;
+      lons[i] = ll.lon;
       land[i] = landAt(ll.lon, ll.lat) ? 1 : 0;
     }
   }
@@ -226,8 +271,11 @@ export function buildWorld(
       const climate = fbm(col, row, cols, 7, 3, region.wrapX);
       const detail = fbm(col, row, cols, 31, 2, region.wrapX);
       const aridity = fbm(col, row, cols, 53, 2, region.wrapX);
-      const absLat = Math.abs(lats[i]);
-      kinds[i] = landKind(absLat, climate, detail, aridity, touchesWater(i, land, cols, rows));
+      const coastal = touchesWater(i, land, cols, rows);
+      kinds[i] =
+        region.id === 'world'
+          ? worldLandKind(lats[i], lons[i], climate, detail, aridity, coastal)
+          : landKind(Math.abs(lats[i]), climate, detail, aridity, coastal);
     }
   }
 

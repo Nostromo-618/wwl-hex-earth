@@ -58,9 +58,18 @@ describe('LAEA', () => {
 });
 
 describe('gridFor', () => {
-  it('keeps World on the globe 2:1 lattice', () => {
-    const spec = gridFor(WORLD, tierById('low'));
-    expect(spec).toMatchObject({ cols: 240, rows: 120, cellUnit: 'deg', cell: 1.5 });
+  it('shapes World so pointy-top hexes paint a 2:1 picture', () => {
+    for (const id of ['low', 'ultra', 'max'] as const) {
+      const tier = tierById(id);
+      const spec = gridFor(WORLD, tier);
+      const pixelAspect = (spec.cols / spec.rows) * HEX_PIXEL_ASPECT;
+      expect(spec.cellUnit).toBe('deg');
+      expect(Math.abs(pixelAspect - 2) / 2).toBeLessThan(0.03);
+      expect(spec.hexes / hexCountOf(tier)).toBeCloseTo(1, 1);
+      expect(spec.cellLon).toBeCloseTo(360 / spec.cols, 5);
+      expect(spec.cellLat).toBeCloseTo(180 / spec.rows, 5);
+      expect(spec.cell).toBeCloseTo(Math.sqrt(spec.cellLon * spec.cellLat), 5);
+    }
     expect(xyToLonLat(10, 20, WORLD)).toEqual({ lon: 10, lat: 20 });
   });
 

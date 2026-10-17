@@ -23,8 +23,9 @@ describe('regions', () => {
     expect(EUROPE.projection).toBe('laea');
     expect(WORLD.wrapX).toBe(true);
     expect(WORLD.projection).toBe('lonlat');
-    expect(defaultTierFor('europe')).toBe('ultra');
-    expect(defaultTierFor('world')).toBe('low');
+    expect(defaultTierFor('europe')).toBe('mid');
+    expect(defaultTierFor('world')).toBe('high');
+    expect(defaultTierFor('nope')).toBe('low');
     expect(lonSpan(EUROPE)).toBeCloseTo(64.5, 5);
     expect(latSpan(EUROPE)).toBeCloseTo(37, 5);
     expect(lonSpan(WORLD)).toBe(360);

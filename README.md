@@ -9,7 +9,7 @@ pnpm install --ignore-scripts=false
 pnpm dev
 ```
 
-Tiers run from 28.8k to 259.2k hexes, for the world and for Europe. Drag to pan, wheel to zoom, click two hexes for a path.
+Tiers run from 28.8k to 259.2k hexes for Europe, and up to 512k for the world. Drag to pan, wheel to zoom, click two hexes for a path.
 
 Coastlines: [Natural Earth](https://www.naturalearthdata.com/) (public domain).
 

@@ -184,6 +184,9 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 28px #0003;
   font-size: 12px;
 }
+.controls-panel {
+  width: 360px;
+}
 .wwl-earth-panel-head {
   display: flex;
   align-items: center;

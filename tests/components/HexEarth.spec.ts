@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { lastGrid } from '../helpers/mock-hex-grid';
-import { EUROPE } from '../../src/earth/regions';
+import { EUROPE, WORLD } from '../../src/earth/regions';
 import { gridFor, tierById } from '../../src/earth/world';
 
 const land = vi.hoisted(() => {
@@ -165,7 +165,10 @@ describe('HexEarth', () => {
     await wrapper.setProps({ region: 'world' });
     await flushPromises();
     const status = wrapper.emitted('status')?.flat().map(String) ?? [];
-    expect(status.filter((s) => s.startsWith('painted')).at(-1)).toContain('World 240×120');
+    const world = gridFor(WORLD, tierById('low'));
+    expect(status.filter((s) => s.startsWith('painted')).at(-1)).toContain(
+      `World ${world.cols}×${world.rows}`,
+    );
     wrapper.unmount();
   });
 

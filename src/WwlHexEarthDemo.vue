@@ -4,7 +4,7 @@ import { VdButton, VdSwitch } from '@vanduo-oss/vd3';
 import HexEarth from './components/HexEarth.vue';
 import FloatingPanel from './components/FloatingPanel.vue';
 import StatsPanel from './components/StatsPanel.vue';
-import { defaultTierFor, HEX_SIZE, TIERS, type GridTier } from './earth/world';
+import { defaultTierFor, HEX_SIZE, tiersFor, type GridTier } from './earth/world';
 import { DEFAULT_REGION, REGIONS, type MapRegion } from './earth/regions';
 import { statsStore } from './earth/stats';
 
@@ -49,6 +49,11 @@ const hexPx = computed(() => Math.round(HEX_SIZE * statsStore.scale));
 function setRegion(next: MapRegion['id']): void {
   if (region.value === next) return;
   region.value = next;
+  const preferred = defaultTierFor(next);
+  const offered = tiersFor(next);
+  tier.value = offered.some((tier) => tier.id === preferred)
+    ? preferred
+    : (offered[0]?.id ?? 'low');
 }
 
 function setTier(next: GridTier['id']): void {
@@ -113,7 +118,7 @@ function setTier(next: GridTier['id']): void {
 
         <div class="segmented" role="group" aria-label="Resolution tier">
           <button
-            v-for="t in TIERS"
+            v-for="t in tiersFor(region)"
             :key="t.id"
             class="seg-btn"
             :class="{ active: tier === t.id }"
@@ -219,19 +224,25 @@ function setTier(next: GridTier['id']): void {
 }
 
 .segmented {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--vd-border-color);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .seg-btn {
+  flex: 0 0 auto;
   border: none;
   background: transparent;
   color: var(--vd-text-muted);
   padding: 5px 12px;
   cursor: pointer;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .seg-btn.active {
