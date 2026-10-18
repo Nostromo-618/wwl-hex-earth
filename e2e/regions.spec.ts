@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test('defaults to Europe mid and switches the World globe to high', async ({ page }) => {
+test('defaults to the World globe at high and can switch to Europe', async ({ page }) => {
   await page.goto('/?nobench=1');
-  await expect(page.getByTestId('status')).toContainText(/painted Europe \d+×\d+/, {
+  await expect(page.getByTestId('status')).toContainText(/painted World \d+×\d+/, {
     timeout: 90_000,
   });
-  await expect(page.getByTestId('region-europe')).toHaveClass(/active/);
-  await expect(page.getByTestId('tier-mid')).toHaveClass(/active/);
+  await expect(page.getByTestId('region-world')).toHaveClass(/active/);
+  await expect(page.getByTestId('tier-high')).toHaveClass(/active/);
   await page.getByTestId('region-world').click();
   await expect(page.getByTestId('status')).toContainText(/painted World \d+×\d+/, {
     timeout: 90_000,

@@ -35,7 +35,7 @@ export const WORLD: MapRegion = {
 
 export const REGIONS: MapRegion[] = [EUROPE, WORLD];
 
-export const DEFAULT_REGION: MapRegion['id'] = 'europe';
+export const DEFAULT_REGION: MapRegion['id'] = 'world';
 
 export function regionById(id: string): MapRegion {
   return REGIONS.find((r) => r.id === id) ?? EUROPE;

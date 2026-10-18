@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('theme switcher is usable', async ({ page }) => {
   await page.goto('/?nobench=1');
-  await expect(page.getByTestId('status')).toContainText(/painted Europe \d+×\d+/, {
+  await expect(page.getByTestId('status')).toContainText(/painted World \d+×\d+/, {
     timeout: 90_000,
   });
   const before = await page.locator('html').getAttribute('data-theme');

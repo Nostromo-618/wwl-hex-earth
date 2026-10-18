@@ -10,37 +10,28 @@ import { statsStore } from './earth/stats';
 
 const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false });
 const narrow = ref(typeof window !== 'undefined' && window.innerWidth <= 640);
-const controlsOpen = ref(!narrow.value);
+const statsOpen = ref(false);
 function resize() {
   const next = window.innerWidth <= 640;
   if (next !== narrow.value) {
     narrow.value = next;
-    controlsOpen.value = !next;
     statsOpen.value = false;
   }
 }
 onMounted(() => window.addEventListener('resize', resize));
 onBeforeUnmount(() => window.removeEventListener('resize', resize));
 const resetKey = ref(0);
-function togglePanel(name: 'controls' | 'stats') {
-  if (name === 'controls') {
-    controlsOpen.value = !controlsOpen.value;
-    if (narrow.value) statsOpen.value = false;
-  } else {
-    statsOpen.value = !statsOpen.value;
-    if (narrow.value) controlsOpen.value = false;
-  }
+function toggleStats() {
+  statsOpen.value = !statsOpen.value;
 }
 function resetLayout() {
   resetKey.value++;
-  controlsOpen.value = !narrow.value;
   statsOpen.value = false;
 }
 const map = ref<InstanceType<typeof HexEarth> | null>(null);
 const region = ref<MapRegion['id']>(DEFAULT_REGION);
 const tier = ref<GridTier['id']>(narrow.value ? 'low' : defaultTierFor(DEFAULT_REGION));
 const pathMode = ref(false);
-const statsOpen = ref(false);
 const status = ref('loading map…');
 
 /** On-screen hex radius in CSS px (canvas is drawn at engine scale). */
@@ -64,43 +55,44 @@ function setTier(next: GridTier['id']): void {
 
 <template>
   <div class="wwl-earth-demo" :class="{ 'wwl-earth-embedded': props.embedded }">
-    <header class="wwl-earth-launchers">
-      <span class="brand">HEX EARTH</span>
-      <button
-        class="vd-btn vd-btn-ghost vd-btn-sm"
-        type="button"
-        data-testid="controls-toggle"
-        :aria-expanded="controlsOpen"
-        @click="togglePanel('controls')"
-      >
-        Controls
-      </button>
-      <button
-        class="vd-btn vd-btn-ghost vd-btn-sm"
-        type="button"
-        data-testid="stats-toggle"
-        :aria-expanded="statsOpen"
-        @click="togglePanel('stats')"
-      >
-        Stats
-      </button>
-      <button
-        class="vd-btn vd-btn-ghost vd-btn-sm"
-        type="button"
-        data-testid="reset-layout"
-        @click="resetLayout"
-      >
-        Reset layout
-      </button>
-      <slot name="theme" />
-    </header>
     <FloatingPanel
-      :open="controlsOpen"
+      :open="true"
+      :closable="false"
       name="controls"
       title="Controls"
+      :initial-y="16"
       :reset-key="resetKey"
-      @close="controlsOpen = false"
     >
+      <div class="controls-chrome">
+        <span class="brand">wwl-hex-earth</span>
+        <div class="controls-actions">
+          <button
+            class="vd-btn vd-btn-ghost vd-btn-sm"
+            type="button"
+            data-testid="stats-toggle"
+            :aria-expanded="statsOpen"
+            @click="toggleStats"
+          >
+            Stats
+          </button>
+          <button
+            class="vd-btn vd-btn-ghost vd-btn-sm"
+            type="button"
+            data-testid="reset-layout"
+            @click="resetLayout"
+          >
+            Reset
+          </button>
+          <a
+            v-if="props.embedded"
+            class="vd-btn vd-btn-ghost vd-btn-sm"
+            href="#demos"
+            data-testid="back-to-demos"
+            >Back to demos</a
+          >
+          <slot name="theme" />
+        </div>
+      </div>
       <div class="toolbar">
         <div class="segmented" role="group" aria-label="Map region">
           <button
@@ -194,17 +186,23 @@ function setTier(next: GridTier['id']): void {
 
 .wwl-earth-embedded {
   height: 100%;
+  flex: 1;
+  min-height: 0;
 }
-.wwl-earth-launchers {
+.controls-chrome {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 14px 0;
+}
+.controls-actions {
+  display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 6px 12px;
-  background: var(--vd-bg-secondary);
+  align-items: center;
 }
-.wwl-earth-launchers button {
-  min-height: 44px;
+.controls-actions :is(a, button) {
+  min-height: 32px;
 }
 .toolbar {
   display: flex;
@@ -217,10 +215,10 @@ function setTier(next: GridTier['id']): void {
 }
 
 .brand {
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  color: var(--vd-text-primary);
-  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--vd-text-muted);
+  font-size: 12px;
 }
 
 .segmented {

@@ -85,12 +85,12 @@ describe('App', () => {
     expect(setTheme).not.toHaveBeenCalled();
   });
 
-  it('defaults to Europe mid with the 64.8k tier selected', async () => {
+  it('defaults to the World globe with the 115.2k tier selected', async () => {
     const wrapper = mount(App);
-    expect(wrapper.get('[data-testid="region-europe"]').classes()).toContain('active');
-    const mid = wrapper.get('[data-testid="tier-mid"]');
-    expect(mid.text()).toContain('64.8k');
-    expect(mid.classes()).toContain('active');
+    expect(wrapper.get('[data-testid="region-world"]').classes()).toContain('active');
+    const high = wrapper.get('[data-testid="tier-high"]');
+    expect(high.text()).toContain('115.2k');
+    expect(high.classes()).toContain('active');
     expect((wrapper.get('[data-testid="tier-ultra"]').element as HTMLButtonElement).disabled).toBe(
       false,
     );
@@ -103,6 +103,7 @@ describe('App', () => {
 
   it('offers 512k only on the world and selects each region default', async () => {
     const wrapper = mount(App);
+    await wrapper.get('[data-testid="region-europe"]').trigger('click');
     expect(wrapper.find('[data-testid="tier-max"]').exists()).toBe(false);
     await wrapper.get('[data-testid="region-world"]').trigger('click');
     expect(wrapper.get('[data-testid="tier-high"]').text()).toContain('115.2k');
@@ -128,7 +129,7 @@ describe('App', () => {
     await wrapper.get('[data-testid="path-mode"] button').trigger('click');
     await wrapper.get('[data-testid="tier-mid"]').trigger('click');
     expect(wrapper.get('[data-testid="tier-mid"]').classes()).toContain('active');
-    expect(wrapper.get('[data-testid="region-europe"]').classes()).toContain('active');
+    expect(wrapper.get('[data-testid="region-world"]').classes()).toContain('active');
     await wrapper.get('[data-testid="region-world"]').trigger('click');
     expect(wrapper.get('[data-testid="region-world"]').classes()).toContain('active');
     await wrapper.get('[data-testid="region-world"]').trigger('click');

@@ -8,8 +8,9 @@ const props = withDefaults(
     initialX?: number;
     initialY?: number;
     resetKey?: number;
+    closable?: boolean;
   }>(),
-  { initialX: 16, initialY: 48, resetKey: 0 },
+  { initialX: 16, initialY: 48, resetKey: 0, closable: true },
 );
 const emit = defineEmits<{ close: [] }>();
 const panel = ref<HTMLElement | null>(null);
@@ -156,6 +157,7 @@ onBeforeUnmount(() => {
         {{ collapsed ? '+' : '−' }}
       </button>
       <button
+        v-if="closable"
         type="button"
         :aria-label="`Close ${title.toLowerCase()}`"
         :data-testid="`${name}-close`"
@@ -227,6 +229,10 @@ onBeforeUnmount(() => {
     bottom: calc(8px + env(safe-area-inset-bottom));
     width: auto;
     max-height: 52%;
+  }
+  .wwl-earth-panel.stats-panel {
+    top: 8px !important;
+    bottom: auto !important;
   }
   .wwl-earth-panel-head {
     cursor: default;

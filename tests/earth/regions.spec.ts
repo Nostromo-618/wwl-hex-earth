@@ -13,8 +13,8 @@ import { cellToLonLat, defaultTierFor, gridFor, hexCountOf, tierById } from '../
 import { KIND, buildWorld } from '../../src/earth/terrain';
 
 describe('regions', () => {
-  it('defaults to Europe and lists World as the globe', () => {
-    expect(DEFAULT_REGION).toBe('europe');
+  it('defaults to the World globe and still lists Europe', () => {
+    expect(DEFAULT_REGION).toBe('world');
     expect(REGIONS.map((r) => r.id)).toEqual(['europe', 'world']);
     expect(regionById('europe')).toBe(EUROPE);
     expect(regionById('world')).toBe(WORLD);
