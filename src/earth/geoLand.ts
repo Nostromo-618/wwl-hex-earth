@@ -40,17 +40,46 @@ function normalizeLon(lon: number): number {
   return l;
 }
 
+interface BandSlice {
+  minX: number;
+  maxX: number;
+  /** Packed quads: [xi, yi, (xj - xi) / (yj - yi), yj] for edges crossing this 1° latitude band. */
+  edges: Float64Array;
+}
+
 /**
- * Latitude-band index: each polygon is registered in every 1° band its bbox
- * spans, so a sample only tests the handful of polygons near its latitude
- * instead of all of them.
+ * Active-edge latitude-band index: each 1° latitude band stores only the
+ * non-horizontal edges whose vertical span intersects that band, along with
+ * their band-local [minX, maxX] bounds and precomputed inverse slopes.
  */
-function buildBands(list: LandPolygon[]): LandPolygon[][] {
-  const out: LandPolygon[][] = Array.from({ length: LAT_BANDS }, () => []);
+function buildBands(list: LandPolygon[]): BandSlice[][] {
+  const out: BandSlice[][] = Array.from({ length: LAT_BANDS }, () => []);
   for (const poly of list) {
     const b0 = Math.max(0, Math.min(LAT_BANDS - 1, Math.floor(poly.minY) + 90));
     const b1 = Math.max(0, Math.min(LAT_BANDS - 1, Math.ceil(poly.maxY) + 90));
-    for (let b = b0; b <= b1; b++) out[b].push(poly);
+    for (let b = b0; b <= b1; b++) {
+      const yMin = b - 90;
+      const yMax = b - 89;
+      const coords: number[] = [];
+      let minX = Infinity;
+      let maxX = -Infinity;
+      for (const ring of poly.rings) {
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+          const xi = ring[i][0];
+          const yi = ring[i][1];
+          const xj = ring[j][0];
+          const yj = ring[j][1];
+          if (yi !== yj && Math.max(yi, yj) >= yMin && Math.min(yi, yj) <= yMax) {
+            coords.push(xi, yi, (xj - xi) / (yj - yi), yj);
+            const loX = Math.min(xi, xj);
+            const hiX = Math.max(xi, xj);
+            if (loX < minX) minX = loX;
+            if (hiX > maxX) maxX = hiX;
+          }
+        }
+      }
+      out[b].push({ minX, maxX, edges: new Float64Array(coords) });
+    }
   }
   return out;
 }
@@ -133,37 +162,30 @@ function decode(topo: LandTopology): LandPolygon[] {
   return out;
 }
 
-/** Planar even-odd ray cast; rings are unwrapped into one continuous frame. */
-function inRing(lon: number, lat: number, ring: Ring): boolean {
+/** Planar even-odd ray cast over pre-sliced band edges. */
+function inSlice(lon: number, lat: number, edges: Float64Array): boolean {
   let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const xi = ring[i][0];
-    const yi = ring[i][1];
-    const xj = ring[j][0];
-    const yj = ring[j][1];
-    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+  for (let i = 0; i < edges.length; i += 4) {
+    const yi = edges[i + 1];
+    const yj = edges[i + 3];
+    if (yi > lat !== yj > lat && lon < edges[i + 2] * (lat - yi) + edges[i]) {
       inside = !inside;
     }
   }
   return inside;
 }
 
-function testerFor(index: LandPolygon[][]): (lon: number, lat: number) => boolean {
+function testerFor(index: BandSlice[][]): (lon: number, lat: number) => boolean {
   return (lon, lat) => {
     if (lat < -90 || lat > 90) return false;
     const l = normalizeLon(lon);
     const band = Math.max(0, Math.min(LAT_BANDS - 1, Math.floor(lat) + 90));
     const candidates = index[band];
-    for (const poly of candidates) {
-      if (lat < poly.minY || lat > poly.maxY) continue;
+    for (const slice of candidates) {
       for (const shift of [-360, 0, 360]) {
         const x = l + shift;
-        if (x < poly.minX || x > poly.maxX) continue;
-        let inside = false;
-        for (const ring of poly.rings) {
-          if (inRing(x, lat, ring)) inside = !inside;
-        }
-        if (inside) return true;
+        if (x < slice.minX || x > slice.maxX) continue;
+        if (inSlice(x, lat, slice.edges)) return true;
       }
     }
     return false;

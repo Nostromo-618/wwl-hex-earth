@@ -77,12 +77,12 @@ function valueNoise(x: number, y: number, periodX: number | null, salt: number):
   const y0 = Math.floor(y);
   const fx = smoothstep(x - x0);
   const fy = smoothstep(y - y0);
-  const wrap = (ix: number): number =>
-    periodX == null ? ix : ((ix % periodX) + periodX) % periodX;
-  const v00 = hash01(wrap(x0), y0, salt);
-  const v10 = hash01(wrap(x0 + 1), y0, salt);
-  const v01 = hash01(wrap(x0), y0 + 1, salt);
-  const v11 = hash01(wrap(x0 + 1), y0 + 1, salt);
+  const ix0 = periodX == null ? x0 : ((x0 % periodX) + periodX) % periodX;
+  const ix1 = periodX == null ? x0 + 1 : (((x0 + 1) % periodX) + periodX) % periodX;
+  const v00 = hash01(ix0, y0, salt);
+  const v10 = hash01(ix1, y0, salt);
+  const v01 = hash01(ix0, y0 + 1, salt);
+  const v11 = hash01(ix1, y0 + 1, salt);
   const a = v00 + (v10 - v00) * fx;
   const b = v01 + (v11 - v01) * fx;
   return a + (b - a) * fy;
@@ -268,14 +268,16 @@ export function buildWorld(
         kinds[i] = touchesLand(i, land, cols, rows) ? KIND.SHALLOW : KIND.DEEP;
         continue;
       }
-      const climate = fbm(col, row, cols, 7, 3, region.wrapX);
-      const detail = fbm(col, row, cols, 31, 2, region.wrapX);
-      const aridity = fbm(col, row, cols, 53, 2, region.wrapX);
+      const lat = lats[i];
+      const lon = lons[i];
+      const absLat = Math.abs(lat);
       const coastal = touchesWater(i, land, cols, rows);
-      kinds[i] =
-        region.id === 'world'
-          ? worldLandKind(lats[i], lons[i], climate, detail, aridity, coastal)
-          : landKind(Math.abs(lats[i]), climate, detail, aridity, coastal);
+      const needNoise = lat > -60 && lat < 78 && !inGreenland(lon, lat) && (lat >= 60 || !coastal);
+      const climate = needNoise ? fbm(col, row, cols, 7, 3, region.wrapX) : 0;
+      const detail = needNoise && lat < 60 ? fbm(col, row, cols, 31, 2, region.wrapX) : 1;
+      const aridity =
+        needNoise && absLat >= 15 && absLat <= 33 ? fbm(col, row, cols, 53, 2, region.wrapX) : 0;
+      kinds[i] = worldLandKind(lat, lon, climate, detail, aridity, coastal);
     }
   }
 

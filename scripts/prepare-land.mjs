@@ -14,16 +14,138 @@ const LAND_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/land-10m.json';
 const LAKES_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_lakes.geojson';
 
-const WEST = -24.5 - 3;
-const EAST = 40 + 3;
-const SOUTH = 34.5 - 3;
-const NORTH = 71.5 + 3;
+const EUROPE_LONLAT = { west: -24.5, east: 40, south: 34.5, north: 71.5 };
+const LAEA = {
+  lat0: (52 * Math.PI) / 180,
+  lon0: (10 * Math.PI) / 180,
+  x0: 4_321_000,
+  y0: 3_210_000,
+  R: 6_378_137,
+};
+const SIN_LAT0 = Math.sin(LAEA.lat0);
+const COS_LAT0 = Math.cos(LAEA.lat0);
+
+function forwardLaea(lon, lat) {
+  const φ = (lat * Math.PI) / 180;
+  const λ = (lon * Math.PI) / 180;
+  const dλ = λ - LAEA.lon0;
+  const sinφ = Math.sin(φ);
+  const cosφ = Math.cos(φ);
+  const cosΔ = Math.cos(dλ);
+  const denom = 1 + SIN_LAT0 * sinφ + COS_LAT0 * cosφ * cosΔ;
+  const k = Math.sqrt(2 / Math.max(denom, 1e-12));
+  return [
+    LAEA.x0 + LAEA.R * k * cosφ * Math.sin(dλ),
+    LAEA.y0 + LAEA.R * k * (COS_LAT0 * sinφ - SIN_LAT0 * cosφ * cosΔ),
+  ];
+}
+
+function computeLaeaEnvelope(west, east, south, north) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const take = (lon, lat) => {
+    const [x, y] = forwardLaea(lon, lat);
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  };
+  const samples = 16;
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples;
+    const lon = west + (east - west) * t;
+    const lat = south + (north - south) * t;
+    take(lon, south);
+    take(lon, north);
+    take(west, lat);
+    take(east, lat);
+  }
+  const marginM = 60_000;
+  return {
+    minX: minX - marginM,
+    maxX: maxX + marginM,
+    minY: minY - marginM,
+    maxY: maxY + marginM,
+  };
+}
+
+const LAEA_ENV = computeLaeaEnvelope(
+  EUROPE_LONLAT.west,
+  EUROPE_LONLAT.east,
+  EUROPE_LONLAT.south,
+  EUROPE_LONLAT.north,
+);
+
+/** Full lon/lat envelope covering the Europe LAEA meter rectangle (incl. corners). */
+const WEST = -57;
+const EAST = 73;
+const SOUTH = 28;
+const NORTH = 75;
 const TILE = 2;
 const DECIMALS = 4;
+
+function tileHitsLaea(x0, x1, y0, y1) {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const xm = (x0 + x1) * 0.5;
+  const ym = (y0 + y1) * 0.5;
+  for (const [lon, lat] of [
+    [x0, y0],
+    [x1, y0],
+    [x1, y1],
+    [x0, y1],
+    [xm, ym],
+    [xm, y0],
+    [xm, y1],
+    [x0, ym],
+    [x1, ym],
+  ]) {
+    const [px, py] = forwardLaea(lon, lat);
+    if (px < minX) minX = px;
+    if (px > maxX) maxX = px;
+    if (py < minY) minY = py;
+    if (py > maxY) maxY = py;
+  }
+  return (
+    maxX >= LAEA_ENV.minX && minX <= LAEA_ENV.maxX && maxY >= LAEA_ENV.minY && minY <= LAEA_ENV.maxY
+  );
+}
 
 function round(n) {
   const f = 10 ** DECIMALS;
   return Math.round(n * f) / f;
+}
+
+function unwrapRing(ring) {
+  if (ring.length < 3) return ring;
+  const out = [[ring[0][0], ring[0][1]]];
+  for (let i = 1; i < ring.length; i++) {
+    const lx = out[i - 1][0];
+    let nx = ring[i][0];
+    const ny = ring[i][1];
+    while (nx - lx > 180) nx -= 360;
+    while (nx - lx < -180) nx += 360;
+    out.push([nx, ny]);
+  }
+  return out;
+}
+
+function centerLon(ring) {
+  let sum = 0;
+  for (const p of ring) sum += p[0];
+  return ring.length ? sum / ring.length : 0;
+}
+
+function signedArea2(ring) {
+  let area = 0;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    area += ring[j][0] * ring[i][1] - ring[i][0] * ring[j][1];
+  }
+  return area;
 }
 
 function bboxHits(minX, minY, maxX, maxY) {
@@ -39,11 +161,20 @@ function ringBbox(ring) {
   for (const pt of ring) {
     const x = round(pt[0]);
     const y = round(pt[1]);
+    const prev = out[out.length - 1];
+    if (prev && prev[0] === x && prev[1] === y) continue;
     out.push([x, y]);
     if (x < minX) minX = x;
     if (y < minY) minY = y;
     if (x > maxX) maxX = x;
     if (y > maxY) maxY = y;
+  }
+  if (out.length > 1) {
+    const first = out[0];
+    const last = out[out.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) {
+      out.push([first[0], first[1]]);
+    }
   }
   return { ring: out, minX, minY, maxX, maxY };
 }
@@ -87,6 +218,9 @@ function packRings(rings) {
   for (const ring of rings) {
     if (ring.length < 4) continue;
     const b = ringBbox(ring);
+    if (b.ring.length < 4) continue;
+    if (b.minX >= b.maxX || b.minY >= b.maxY) continue;
+    if (Math.abs(signedArea2(b.ring)) < 1e-8) continue;
     packed.push(b.ring);
     if (b.minX < minX) minX = b.minX;
     if (b.minY < minY) minY = b.minY;
@@ -116,15 +250,52 @@ function tilePolygon(poly) {
   const x1 = Math.ceil(clipped.maxX / TILE) * TILE;
   const y0 = Math.floor(clipped.minY / TILE) * TILE;
   const y1 = Math.ceil(clipped.maxY / TILE) * TILE;
-  if (x1 - x0 <= TILE + 1e-9 && y1 - y0 <= TILE + 1e-9) return [clipped];
+  if (x1 - x0 <= TILE + 1e-9 && y1 - y0 <= TILE + 1e-9) {
+    return tileHitsLaea(clipped.minX, clipped.maxX, clipped.minY, clipped.maxY) ? [clipped] : [];
+  }
   const tiles = [];
   for (let x = x0; x < x1 - 1e-9; x += TILE) {
     for (let y = y0; y < y1 - 1e-9; y += TILE) {
+      if (!tileHitsLaea(x, x + TILE, y, y + TILE)) continue;
       const piece = clipToBox(clipped.rings, x, x + TILE, y, y + TILE);
       if (piece) tiles.push(piece);
     }
   }
-  return tiles.length ? tiles : [clipped];
+  return tiles;
+}
+
+function alignPolygonRings(rawRings) {
+  if (!rawRings.length) return [];
+  const outer = unwrapRing(rawRings[0]);
+  const outerCenter = centerLon(outer);
+  const holes = rawRings.slice(1).map((r) => {
+    const h = unwrapRing(r);
+    const shift = 360 * Math.round((outerCenter - centerLon(h)) / 360);
+    return shift === 0 ? h : h.map(([x, y]) => [x + shift, y]);
+  });
+  return [outer, ...holes];
+}
+
+function shiftPolygon(packed, shift) {
+  if (shift === 0) return packed;
+  return {
+    rings: packed.rings.map((ring) => ring.map(([x, y]) => [round(x + shift), y])),
+    minX: round(packed.minX + shift),
+    minY: packed.minY,
+    maxX: round(packed.maxX + shift),
+    maxY: packed.maxY,
+  };
+}
+
+function addAlignedPolygon(out, rawRings) {
+  const aligned = alignPolygonRings(rawRings);
+  const packed = packRings(aligned);
+  if (!packed) return;
+  for (const shift of [-360, 0, 360]) {
+    if (bboxHits(packed.minX + shift, packed.minY, packed.maxX + shift, packed.maxY)) {
+      out.push(...tilePolygon(shiftPolygon(packed, shift)));
+    }
+  }
 }
 
 function decodeTopo(topo) {
@@ -153,10 +324,7 @@ function decodeTopo(topo) {
 
   const out = [];
   const addPolygon = (arcLists) => {
-    const packed = packRings(arcLists.map(ringFrom));
-    if (packed && bboxHits(packed.minX, packed.minY, packed.maxX, packed.maxY)) {
-      out.push(...tilePolygon(packed));
-    }
+    addAlignedPolygon(out, arcLists.map(ringFrom));
   };
 
   const land = topo.objects.land;
@@ -173,17 +341,13 @@ function decodeTopo(topo) {
 
 function decodeGeojson(fc) {
   const out = [];
-  const add = (coords) => {
-    const packed = packRings(coords);
-    if (packed && bboxHits(packed.minX, packed.minY, packed.maxX, packed.maxY)) {
-      out.push(...tilePolygon(packed));
-    }
-  };
   for (const f of fc.features ?? []) {
     const g = f.geometry;
     if (!g) continue;
-    if (g.type === 'Polygon') add(g.coordinates);
-    else if (g.type === 'MultiPolygon') for (const poly of g.coordinates) add(poly);
+    if (g.type === 'Polygon') addAlignedPolygon(out, g.coordinates);
+    else if (g.type === 'MultiPolygon') {
+      for (const poly of g.coordinates) addAlignedPolygon(out, poly);
+    }
   }
   return out;
 }

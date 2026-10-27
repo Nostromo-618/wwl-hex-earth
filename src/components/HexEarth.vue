@@ -53,6 +53,7 @@ const host = ref<HTMLDivElement | null>(null);
 let grid: InstanceType<typeof VdHexGridCore> | null = null;
 let world: WorldMap | null = null;
 let worldCounts: number[] | null = null;
+let cachedWorldInfo: HexWorldInfo | null = null;
 let pathCells: Cell[] = [];
 let startCell: Cell | null = null;
 let lastPaintMs = 0;
@@ -105,7 +106,7 @@ async function paint(
 
   world = buildWorld(landAt, spec.cols, spec.rows, region);
   if (grid.width !== spec.cols || grid.height !== spec.rows) {
-    grid.setDimensions(spec.cols, spec.rows);
+    grid.setDimensions(spec.cols, spec.rows, { preserveStyle: false, render: false });
   }
   for (const hex of grid.hexes.values()) {
     const col = qToCol(hex.q, hex.r);
@@ -117,6 +118,20 @@ async function paint(
   rememberKindCounts(countKinds(world.kinds));
   fitView();
   lastPaintMs = performance.now() - started;
+  cachedWorldInfo = {
+    region: region.label,
+    tier: tier.id,
+    cols: world.cols,
+    rows: world.rows,
+    hexes: world.cols * world.rows,
+    cell: spec.cell,
+    cellLon: spec.cellLon,
+    cellLat: spec.cellLat,
+    cellUnit: spec.cellUnit,
+    landCells: world.landCells,
+    kindCounts: worldCounts!,
+    paintMs: lastPaintMs,
+  };
   if (!quiet) {
     emit(
       'status',
@@ -140,7 +155,18 @@ function fitViewFor(target: InstanceType<typeof VdHexGridCore>, element: HTMLEle
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  for (const hex of target.hexes.values()) {
+  const maxCol = Math.max(0, target.width - 1);
+  const maxRow = Math.max(0, target.height - 1);
+  const corners: Array<[number, number]> = [
+    [0, 0],
+    [maxCol, 0],
+    [maxCol, Math.min(1, maxRow)],
+    [0, maxRow],
+    [maxCol, maxRow],
+  ];
+  for (const [col, row] of corners) {
+    const hex = target.getHex(cellToQ(col, row), row);
+    if (!hex) continue;
     if (hex.x < minX) minX = hex.x;
     if (hex.y < minY) minY = hex.y;
     if (hex.x > maxX) maxX = hex.x;
@@ -176,6 +202,7 @@ function clearPathVisuals(): void {
 }
 
 function drawOverlay(ctx: CanvasRenderingContext2D, hex: HexCell, size: number): void {
+  if (pathCells.length === 0) return;
   const d = hex.data as { p?: number; a?: number };
   if (d.p === undefined) return;
   ctx.save();
@@ -213,7 +240,10 @@ function onSelect(hex: HexCell): void {
     startCell = null;
     clearPathVisuals();
     redraw();
-    emit('status', `${ll.lat.toFixed(1)}°, ${ll.lon.toFixed(1)}°`);
+    const idx = cell.row * grid.width + cell.col;
+    const terrainLabel = world ? (KIND_NAMES[world.kinds[idx]] ?? '') : '';
+    const suffix = terrainLabel ? ` · ${terrainLabel}` : '';
+    emit('status', `${ll.lat.toFixed(1)}°, ${ll.lon.toFixed(1)}°${suffix}`);
     return;
   }
   if (!startCell) {
@@ -242,23 +272,7 @@ function onSelect(hex: HexCell): void {
 }
 
 function getWorldInfo(): HexWorldInfo | null {
-  if (!world || !worldCounts) return null;
-  const tier = tierById(props.tier);
-  const spec = gridFor(regionById(props.region), tier);
-  return {
-    region: regionById(props.region).label,
-    tier: tier.id,
-    cols: world.cols,
-    rows: world.rows,
-    hexes: world.cols * world.rows,
-    cell: spec.cell,
-    cellLon: spec.cellLon,
-    cellLat: spec.cellLat,
-    cellUnit: spec.cellUnit,
-    landCells: world.landCells,
-    kindCounts: worldCounts,
-    paintMs: lastPaintMs,
-  };
+  return cachedWorldInfo;
 }
 
 function getRenderStats(): HexRenderStats {

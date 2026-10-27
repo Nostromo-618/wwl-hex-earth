@@ -178,19 +178,20 @@ export function cellToLonLat(
  * `upL=(c-1,r-1)/upR=(c,r-1)`, odd rows use `upL=(c,r-1)/upR=(c+1,r-1)`
  * (same for the row below), plus E/W.
  */
+function pushNeighbor(out: number[], c: number, r: number, cols: number, rows: number): void {
+  if (c < 0 || c >= cols || r < 0 || r >= rows) return;
+  out.push(r * cols + c);
+}
+
 export function neighborIndexes(col: number, row: number, cols: number, rows: number): number[] {
   const parity = row & 1;
   const out: number[] = [];
-  const add = (c: number, r: number): void => {
-    if (c < 0 || c >= cols || r < 0 || r >= rows) return;
-    out.push(r * cols + c);
-  };
-  add(col - 1, row);
-  add(col + 1, row);
-  add(col - 1 + parity, row - 1);
-  add(col + parity, row - 1);
-  add(col - 1 + parity, row + 1);
-  add(col + parity, row + 1);
+  pushNeighbor(out, col - 1, row, cols, rows);
+  pushNeighbor(out, col + 1, row, cols, rows);
+  pushNeighbor(out, col - 1 + parity, row - 1, cols, rows);
+  pushNeighbor(out, col + parity, row - 1, cols, rows);
+  pushNeighbor(out, col - 1 + parity, row + 1, cols, rows);
+  pushNeighbor(out, col + parity, row + 1, cols, rows);
   return out;
 }
 
@@ -215,21 +216,21 @@ export function findPath(start: Cell, goal: Cell, cols: number, rows: number): C
   if (startIdx === goalIdx) return [start];
   const prev = new Int32Array(total).fill(-1);
   const seen = new Uint8Array(total);
+  const queue = new Int32Array(total);
   seen[startIdx] = 1;
-  let frontier: number[] = [startIdx];
-  while (frontier.length > 0 && !seen[goalIdx]) {
-    const next: number[] = [];
-    for (const cur of frontier) {
-      const cr = Math.floor(cur / cols);
-      const cc = cur % cols;
-      for (const ni of neighborIndexes(cc, cr, cols, rows)) {
-        if (seen[ni]) continue;
-        seen[ni] = 1;
-        prev[ni] = cur;
-        next.push(ni);
-      }
+  queue[0] = startIdx;
+  let head = 0;
+  let tail = 1;
+  while (head < tail && !seen[goalIdx]) {
+    const cur = queue[head++];
+    const cr = Math.floor(cur / cols);
+    const cc = cur % cols;
+    for (const ni of neighborIndexes(cc, cr, cols, rows)) {
+      if (seen[ni]) continue;
+      seen[ni] = 1;
+      prev[ni] = cur;
+      queue[tail++] = ni;
     }
-    frontier = next;
   }
   /* v8 ignore start */
   if (!seen[goalIdx]) return [];

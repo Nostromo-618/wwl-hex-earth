@@ -195,6 +195,16 @@ describe('Natural Earth 10m Europe', () => {
     expect(lakeAt(13.3, 58.85)).toBe(true);
     expect(at(13.3, 58.85)).toBe(false);
   });
+
+  it('keeps the Norwegian Sea as water and northern Scandinavia, Kola, and western Russia as land', () => {
+    expect(at(0, 67)).toBe(false);
+    expect(at(0, 71.2)).toBe(false);
+    expect(at(-15, 68)).toBe(false);
+    expect(at(25, 70)).toBe(true);
+    expect(at(27, 68)).toBe(true);
+    expect(at(35, 67.5)).toBe(true);
+    expect(at(49, 55.8)).toBe(true);
+  });
 });
 
 describe('createGeoLandTest', () => {
